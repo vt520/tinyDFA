@@ -1,0 +1,16 @@
+{
+    "cSpell.words": [
+        "debugln",
+        "millis",
+        "println",
+        "Roduner"
+    ],
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/build" : true
+    }
+}
