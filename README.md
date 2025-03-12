@@ -73,7 +73,7 @@ void setup() {
 void loop() {
     // you can have as many processes as memory allows
     for (int i = 0; i < sizeof(processes); i++)
-        process[i]->Execute();
+        processes[i]->Execute();
 }
 ```
 
