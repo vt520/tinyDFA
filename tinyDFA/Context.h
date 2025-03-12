@@ -32,6 +32,9 @@ namespace tiny {
       /// @brief Instructs the Processor to wait the given Time Units until Executing another action
       Time delay = 0;
 
+      /// @brief Contains the overflow from the last Idle call
+      Time latency = 0;
+
       /// @brief Creates a new Context
       Context() {
         ElapsedTime(true);
@@ -47,12 +50,12 @@ namespace tiny {
         return delta_time(elapsed);
       }
 
-      /// @brief Decrements the delay by at most elapsed Time units
+      /// @brief Decrements the delay by at most elapsed Time units.  If elapsed is greater than delay, the remainder is set as latency
       /// @param elapsed The amount of Time units that should be removed
       /// @return true when delay is non-zero
       bool Idle(Time elapsed = 0) {
         Time decrement = min(delay, elapsed);
-        //Serial.println(delay);
+        latency = elapsed - decrement;
         delay -= decrement;
         return (delay > 0);
       }
