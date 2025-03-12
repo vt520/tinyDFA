@@ -1,13 +1,15 @@
 #!/bin/bash
-WORKING_FOLDER="${PWD}"
-LIB_NAME=$(basename "${WORKING_FOLDER}")
+PROJECT_FOLDER="${PWD}"
+PROJECT_NAME=$(basename "${PROJECT_FOLDER}")
 RELEASE=${RELEASE:-false}
 
-BUILD_BASE="$(mktemp -d --suffix=${LIB_NAME})"
-LOG_FILE="${WORKING_FOLDER}/.build.log"
-CONFIGURATION="${WORKING_FOLDER}/library.properties"
+TEMPORARY_FOLDER="$(mktemp -d --suffix=${PROJECT_NAME})"
+LOG_FILE="${PROJECT_FOLDER}/.build.log"
+CONFIGURATION="${PROJECT_FOLDER}/library.properties"
+
 get_config() {
-    grep -E "^${1}=" "${CONFIGURATION}" | tail -n 1 | sed -r "s/^[^=]+=//"
+    VALUE=$(grep -E "^${1}=" "${CONFIGURATION}" || echo "$1=$2")
+    echo $VALUE | tail -n 1 | sed -r "s/^[^=]+=//" 
 }
 set_config() {
     grep -E "^${1}=" "${CONFIGURATION}" &> /dev/null && {
@@ -27,42 +29,50 @@ tee_command() {
 output() {
     echo $@ | tee -a "${LOG_FILE}"
 }
-break_version() {
+parse_version() {
     echo $1 | sed -r "s/\./ /g"
 }
-major_v() {
+major_version() {
     echo $1
 }
-minor_v() {
+minor_version() {
     echo $2
 }
+build_version() {
+    echo $3
+}
 
-BUILD_DESTINATION="${BUILD_BASE}/${LIB_NAME}/"
+COPY_DESTINATION="${TEMPORARY_FOLDER}/${PROJECT_NAME}/"
 
 [ -e "library.properties" ] || {
-    output "library.properties" missing are you in a library folder 
+    output '"library.properties" is missing, are you in a Arduino project folder?'
     exit    
 }
 
 
 output "Getting Build Information"
-[ -e library.build ] || echo 0 > library.build
-echo $(( 1 + $(<library.build))) > library.build
-BUILD=$(<library.build)
-VERSION_VALUE=$(get_config version) 
-VERSION_ID=$(break_version "$VERSION_VALUE")
-MAJOR_V=$(major_v $VERSION_ID)
-MINOR_V=$(minor_v $VERSION_ID)
-VERSION_VALUE="$MAJOR_V.$MINOR_V.$BUILD"
-set_config version "$VERSION_VALUE"
 
-EXPORT_FOLDER="${WORKING_FOLDER}/release/${VERSION_VALUE}/"
+VERSION=$(get_config version 0.0.0) 
+echo $(get_config builder nobody)
+PARSED_VERSION=$(parse_version "$VERSION")
+MAJOR_VERSION=$(major_version $PARSED_VERSION)
+MINOR_VERSION=$(minor_version $PARSED_VERSION)
+BUILD_VERSION=$(( $(build_version $PARSED_VERSION) + 1 ))
+
+VERSION="$MAJOR_VERSION.$MINOR_VERSION.$BUILD_VERSION"
+
+output Updating library.properties
+set_config version "$VERSION"
+set_config sequence $(date -u "+%s")
+
+RELEASE_FOLDER="${PROJECT_FOLDER}/release/${VERSION}/"
+
 output Creating Release folder
-mkdir -p "${EXPORT_FOLDER}"
+mkdir -p "${RELEASE_FOLDER}"
 
 output Snapshotting Release Source
 log_command tar cvf \
-    "${EXPORT_FOLDER}/${LIB_NAME}_${VERSION_VALUE}.tar" \
+    "${RELEASE_FOLDER}/${PROJECT_NAME}_${VERSION}.tar" \
     $(find . -type f \
         -not -iname "*.tar" \
         -not -iname "*.zip" \
@@ -70,8 +80,8 @@ log_command tar cvf \
         -not -wholename "./.*" -not \
         -wholename "./release/*")
 
-output Building ${LIB_NAME}-$VERSION_VALUE Library in ${BUILD_DESTINATION}
-log_command mkdir -p "${BUILD_DESTINATION}src/${LIB_NAME}" 
+output Building Library ${PROJECT_NAME}, Version $VERSION as ${RELEASE_FOLDER}${PROJECT_NAME}.zip
+log_command mkdir -p "${COPY_DESTINATION}src/${PROJECT_NAME}" 
 
 output Including root files
 log_command cp -rpv \
@@ -80,51 +90,51 @@ log_command cp -rpv \
     "library.properties" \
     "LICENSE" \
     "README.md" \
-    "${BUILD_DESTINATION}"
+    "${COPY_DESTINATION}"
 
 output Including library source 
 log_command cp -rpv \
-    "${LIB_NAME}" \
-    "${LIB_NAME}.h" \
-    "${BUILD_DESTINATION}src/"
+    "${PROJECT_NAME}" \
+    "${PROJECT_NAME}.h" \
+    "${COPY_DESTINATION}src/"
 
 output Including documentation
 log_command cp -rpv \
     "docs" \
-    "${BUILD_DESTINATION}extras/"
+    "${COPY_DESTINATION}extras/"
 
 output Creating default example
-log_command mkdir -p "${BUILD_DESTINATION}examples/${LIB_NAME}"
+log_command mkdir -p "${COPY_DESTINATION}examples/${PROJECT_NAME}"
 
-output Creating "${BUILD_DESTINATION}examples/${LIB_NAME}/${LIB_NAME}.ino"
-tee_command sed -rE 's/#include(\s+)\"'${LIB_NAME}'[.]h\"/#include\1<'${LIB_NAME}'.h>/' "${LIB_NAME}.ino" > "${BUILD_DESTINATION}examples/${LIB_NAME}/${LIB_NAME}.ino"
+output Creating "${COPY_DESTINATION}examples/${PROJECT_NAME}/${PROJECT_NAME}.ino"
+tee_command sed -rE 's/#include(\s+)\"'${PROJECT_NAME}'[.]h\"/#include\1<'${PROJECT_NAME}'.h>/' "${PROJECT_NAME}.ino" > "${COPY_DESTINATION}examples/${PROJECT_NAME}/${PROJECT_NAME}.ino"
 
 output Patching existing examples
 for EXAMPLE in $(basename $(find examples/ -mindepth 1 -maxdepth 1 -type d -not -iname ".*")); do 
     FILE="examples/${EXAMPLE}/${EXAMPLE}.ino"
-    output Patching "${FILE}" as "${BUILD_DESTINATION}${FILE}"
-    tee_command sed -rE 's/#include(\s+)\"'${LIB_NAME}'[.]h\"/#include\1<'${LIB_NAME}'.h>/' "${FILE}" > "${BUILD_DESTINATION}${FILE}"
+    output Patching "${FILE}" as "${COPY_DESTINATION}${FILE}"
+    tee_command sed -rE 's/#include(\s+)\"'${PROJECT_NAME}'[.]h\"/#include\1<'${PROJECT_NAME}'.h>/' "${FILE}" > "${COPY_DESTINATION}${FILE}"
 done;
 
 
-output Changing to ${BUILD_BASE}
-log_command cd "${BUILD_BASE}"
+output Changing to ${TEMPORARY_FOLDER}
+log_command cd "${TEMPORARY_FOLDER}"
 
 output Checking Release Mode
 ${RELEASE} || {
-    log_command touch "${LIB_NAME}/.development"
-    log_command touch "${EXPORT_FOLDER}/development_release"
+    log_command touch "${PROJECT_NAME}/.development"
+    log_command touch "${RELEASE_FOLDER}/development_release"
     output "Development Mode (use RELEASE=true for release)"
 }
 
 output Compressing library
-log_command zip -r "${EXPORT_FOLDER}/${LIB_NAME}.zip" "${LIB_NAME}" >> "${LOG_FILE}"
-cd "${WORKING_FOLDER}"
-echo Exited ${BUILD_BASE}
+log_command zip -r "${RELEASE_FOLDER}/${PROJECT_NAME}.zip" "${PROJECT_NAME}" >> "${LOG_FILE}"
+cd "${PROJECT_FOLDER}"
+echo Exited ${TEMPORARY_FOLDER}
 
 echo Removing Temporary Directory
-rm -r "${BUILD_BASE}"
+rm -r "${TEMPORARY_FOLDER}"
 
 echo Snapshotting source
 
-echo Finished building $LIB_NAME in $EXPORT_FOLDER
+echo Finished building $PROJECT_NAME in $RELEASE_FOLDER
