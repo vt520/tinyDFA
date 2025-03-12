@@ -128,7 +128,30 @@ namespace tiny {
         // Attempt to Execute the current state
         return ExecutedCurrent();
       }
+
+      /// @brief Select the supplied State during the next execution (this will stop any child branch)
+      /// @param state The state that the process should select
+      /// @return true (Always succeeds)
+      bool Select(State * state) {
+        if(child) {
+          child->Select(State::Named<Stop>());
+        }
+        if (state != current) context->next = state;
+        return true;
+      }
+
+      
+      /// @brief Instructs the Process to ignore any delay; and immediately execute the selected process
+      /// @param state The state that the process should select
+      /// @return true when the process has executed a state
+      bool ExecuteNow() {
+        if (child) return child->ExecuteNow();
+        context->delay = 0;
+        return Execute();
+      }
+
     };
+
     
     /// @brief The default process presented by tinyDFA
     Process* process;    
