@@ -10,4 +10,10 @@
 /// @returns bool if resource is in a ready state 
 #define Is_Ready bool Ready()
 
+
+/// @brief Declare a Device that realizes an incomplete device
+/// @param S the State name of the Device
+/// @param C the State name of the Device to implement
+#define DeviceInstance(S,C) class S : public C
+
 #endif
