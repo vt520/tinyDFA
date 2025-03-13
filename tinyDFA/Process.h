@@ -91,6 +91,7 @@ namespace tiny {
       /// @brief Create a process using an initial State object
       /// @param init The initial state for this process
       Process (State * init) {
+        if (!init) init = State::Named<Stop>();
         context->next = init;
       }
 
@@ -100,7 +101,7 @@ namespace tiny {
       }
 
       /// @brief Create a default process
-      Process() : Process(State::Named<Stop>()) {  
+      Process() : Process(nullptr) {  
         
       }
       /// @brief Creates a new process using a well-known State object
@@ -108,6 +109,13 @@ namespace tiny {
       /// @return Process loaded with the requested state
       template <typename KnownState> static Process * Using() {
         return new Process(State::Named<KnownState>());
+      }
+      
+      template <class KnownProcess> static Process * Named(State * state = nullptr) {
+        static Process * instance = nullptr;
+        if(!instance) instance = new KnownProcess(state);
+        else if(state) instance->Select(state);
+        return instance;
       }
       
       /// @brief Executes one step of the given process
@@ -144,10 +152,14 @@ namespace tiny {
       /// @brief Instructs the Process to ignore any delay; and immediately execute the selected process
       /// @param state The state that the process should select
       /// @return true when the process has executed a state
-      bool ExecuteNow() {
-        if (child) return child->ExecuteNow();
+      bool Immediate() {
+        if (child) return child->Immediate();
         context->delay = 0;
         return Execute();
+      }
+
+      State * Selected() {
+        return current;
       }
 
     };
@@ -158,4 +170,5 @@ namespace tiny {
   }
 }
 
+#include "structure/process.h" // Must remain at end of file
 #endif
