@@ -59,11 +59,20 @@ MAJOR_VERSION=$(major_version $PARSED_VERSION)
 MINOR_VERSION=$(minor_version $PARSED_VERSION)
 BUILD_VERSION=$(( $(build_version $PARSED_VERSION) + 1 ))
 
+PROJECT_HEADER=${PROJECT_NAME}.h
+
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$BUILD_VERSION"
+SEQUENCE=$(date -u "+%s")
 
 output Updating library.properties
 set_config version "$VERSION"
-set_config sequence $(date -u "+%s")
+set_config sequence "$SEQUENCE"
+
+output Updating $PROJECT_HEADER
+sed -ri "s/^\s*(#define\s+${PROJECT_NAME@U}_SEQUENCE_ID)[^A-Z_0-9]*.*/\1 ${SEQUENCE}/" "$PROJECT_HEADER" 
+sed -ri "s/^\s*(#define\s+${PROJECT_NAME@U}_MAJOR_VERSION)[^A-Z_0-9]*.*/\1 ${MAJOR_VERSION}/" "$PROJECT_HEADER"
+sed -ri "s/^\s*(#define\s+${PROJECT_NAME@U}_MINOR_VERSION)[^A-Z_0-9]*.*/\1 ${MINOR_VERSION}/" "$PROJECT_HEADER"
+sed -ri "s/^\s*(#define\s+${PROJECT_NAME@U}_BUILD_VERSION)[^A-Z_0-9]*.*/\1 ${BUILD_VERSION}/" "$PROJECT_HEADER"
 
 RELEASE_FOLDER="${PROJECT_FOLDER}/release/${VERSION}/"
 

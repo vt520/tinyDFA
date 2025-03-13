@@ -3,7 +3,8 @@
         "debugln",
         "millis",
         "println",
-        "Roduner"
+        "Roduner",
+        "TINYDFA"
     ],
     "files.exclude": {
         "**/.git": true,
