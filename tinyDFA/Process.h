@@ -13,6 +13,9 @@ namespace tiny {
 
     class Process {
       private:
+      
+      Content_Ptr requested_content = nullptr;
+
       /// @brief Pointer to the currently loaded state
       State * current = nullptr;
 
@@ -21,6 +24,15 @@ namespace tiny {
 
       /// @brief Pointer to a child Process
       Process * child = nullptr;
+
+      void UnloadChild(bool halt = true) {
+        if (child) {
+          if (halt) child->Halt();
+          delete child;
+          child = nullptr;
+          extended_debug_literal(">> Remove Child");
+        }
+      }
 
       /// @brief Attempts to Load/Execute a branch when requested
       /// @return true if a branch has been loaded or executed; false otherwise
@@ -38,9 +50,7 @@ namespace tiny {
           // if the child is still executing, return true
           if(child->Execute()) return true;
           // remove the child 
-          delete child;
-          child = nullptr;
-          extended_debug_literal(">> Remove Child");
+          UnloadChild(false);
         }
         // No meaningful Branch action taken, return false
         return false;
@@ -86,14 +96,15 @@ namespace tiny {
         // No context switch occurred
         return false;
       }
-
       public:
+      Process (State * init, Content_Ptr content) {
+        if (!init) init = State::Named<Stop>();
+        Start(init, content);
+      }
+
       /// @brief Create a process using an initial State object
       /// @param init The initial state for this process
-      Process (State * init) {
-        if (!init) init = State::Named<Stop>();
-        context->next = init;
-      }
+      Process (State * init) : Process(init, nullptr) { }
 
       /// @brief Removes automatically allocated resources
       ~Process() {
@@ -107,14 +118,15 @@ namespace tiny {
       /// @brief Creates a new process using a well-known State object
       /// @tparam KnownState the class name of the well-known State to use as the initial state
       /// @return Process loaded with the requested state
-      template <typename KnownState> static Process * Using() {
-        return new Process(State::Named<KnownState>());
+      template <typename KnownState> static Process * Using(Content_Ptr content = nullptr) {
+        return new Process(State::Named<KnownState>(), content);
       }
       
-      template <class KnownProcess> static Process * Named(State * state = nullptr) {
+      template <class KnownProcess> 
+      static Process * Named(State * state = nullptr, Content_Ptr * content = nullptr) {
         static Process * instance = nullptr;
         if(!instance) instance = new KnownProcess(state);
-        else if(state) instance->Select(state);
+        else if(state) instance->Start(state, content);
         return instance;
       }
       
@@ -141,8 +153,10 @@ namespace tiny {
       /// @param state The state that the process should select
       /// @return true (Always succeeds)
       bool Select(State * state) {
-        if(child) {
-          child->Select(State::Named<Stop>());
+        if (child) {
+          child->Halt();
+          child = nullptr;
+          delete child;
         }
         if (state != current) context->next = state;
         return true;
@@ -156,12 +170,44 @@ namespace tiny {
         if (child) return child->Immediate();
         context->delay = 0;
         return Execute();
+
+      }
+      State * Halt() {
+        State * halted_state = current;
+        if (child) child->Halt();
+        if (halted_state) {
+          Select(State::Named<tiny::DFA::Stop>());
+          Immediate();
+        } 
+        return halted_state;
       }
 
       State * Selected() {
-        return current;
+        return current ? current : State::Named<tiny::DFA::Stop>();
       }
 
+      State * Active() {
+        State * active = nullptr;
+        if (child) active = child->Active();
+        if (!active) active = Selected();
+        return active;
+      }
+
+      Content_Ptr Content() {
+        return context->content;
+      }
+
+      void * SetContent(void * content) {
+        State * halted_state = Halt();
+        context->content = content;
+        return halted_state;
+      }
+
+      void Start(State * state, Content_Ptr content) {
+        SetContent(content);
+        Select(state);
+        Immediate();
+      }
     };
 
     

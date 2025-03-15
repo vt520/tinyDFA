@@ -5,6 +5,8 @@
 
 namespace tiny {
   namespace DFA {
+    using Content_Ptr = void *;
+    
     /// @brief Convenience type for Time units
     using Time = unsigned long;
 

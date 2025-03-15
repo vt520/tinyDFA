@@ -7,6 +7,9 @@
 
 namespace tiny {
     namespace DFA {
+        /// @brief The Default console pointer; must be initialized _before_ use
+        Stream * console = nullptr;
+        
         /// @brief The Console Stream Device
         Device(Console,Stream) {
             On_Execute {
@@ -16,11 +19,10 @@ namespace tiny {
                     context->delay = tinyDFA_SERIAL_DELAY_MS;
                 }
                 resource = & tinyDFA_SERIAL_DEVICE;
+                console = resource(Console, Stream);
                 continue_to(tiny::DFA::Stop);
             }
         };
-        /// @brief The Default console pointer; must be initialized _before_ use
-        Stream * console = device(Console, Stream)->resource;
     }
 }
 

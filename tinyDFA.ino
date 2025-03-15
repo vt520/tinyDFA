@@ -20,6 +20,10 @@ State(Counter) {
     context->delay = millis_time(TEST_DELAY_MS);
     console->println(context->evaluation);
     if (context->evaluation == 10) {
+      bool * content = static_cast<bool *>(context->content);
+      if (content) {
+        *content = true;
+      }
 
       continue_to(Branching);
     }
@@ -68,6 +72,10 @@ State(Setup) {
   On_Execute {
     if (context->branched) {
       if (State::Is<Console>(context->branch)) {
+        bool * content = static_cast<bool *>(context->content);
+        if (content) {
+          *content = true;
+        }
         continue_to(Counter);
       } 
     }
@@ -75,12 +83,16 @@ State(Setup) {
   }
 };
 
-
+bool flag = false;
 void setup() {
   //console->available();
-  process = Process::Using<Setup>();
+  process = Process::Using<Setup>(&flag);
 }
 
 void loop() {
+    if (flag) {
+      Serial.println(flag);
+      flag = false;
+    }
     if(!process->Execute()) halt("Process Stopped");
 }

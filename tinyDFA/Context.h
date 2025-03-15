@@ -14,6 +14,9 @@ namespace tiny {
       Time last_check_time = 0;
       
       public:
+      
+      Content_Ptr content = nullptr;
+
       /// @brief When set (and branch is unset) Process should select this State as current on the next Execution
       State * next = nullptr;
 
@@ -58,6 +61,9 @@ namespace tiny {
         latency = elapsed - decrement;
         delay -= decrement;
         return (delay > 0);
+      }
+      operator Content_Ptr () {
+        return content;
       }
     };
   }
